@@ -1,0 +1,81 @@
+//
+//  RouteFinder.m
+//  Lasso
+//
+
+#import "RouteFinder.h"
+#import "GoogleDirectionProvider.h"
+
+
+@interface RouteFinder ()
+@property (strong, nonatomic) NSMutableArray *routes;
+@property double pointsCount;
+@property double currentAngle;
+@property Route *currentRoute;
+
+@end
+
+
+@implementation RouteFinder
+
+- (id) initWithUserCoordinate: (CLLocationCoordinate2D) coordinate distance: (double) routeDistance treshold: (double) treshold angle: (double) angle {
+    if (self = [super init]) {
+        self.coordinate = coordinate;
+        self.requiredDistance = routeDistance;
+        self.treshold = treshold;
+        self.currentAngle = angle;
+        self.pointsCount = 7;
+        self.routes = [NSMutableArray new];
+    }
+    return self;
+}
+
+- (CLLocationCoordinate2D) makeCoordFromCoord: (CLLocationCoordinate2D) coordinate distance: (CLLocationDistance) distance angle: (CGFloat) angle{
+    //    NSLog(@"angle: %f, lat: %f, lon: %f", angle, distance * sin(angle), distance * cos(angle));
+    MKCoordinateRegion region = MKCoordinateRegionMakeWithDistance(coordinate, distance * sin(angle), distance * cos(angle));
+    CLLocationCoordinate2D coord = CLLocationCoordinate2DMake(region.center.latitude - region.span.latitudeDelta/2.0f, region.center.longitude + region.span.longitudeDelta/2.f);
+    return coord;
+}
+
+
+- (void) findRoute: (RouteFinderFoundRoute) completeBlock onFoundBadRoute: (RouteFinderFoundBadRoute) badCompleteBlock onError: (ErrorBlock) errorBlock {
+    self.currentRoute = [[Route alloc] init];
+
+    CLLocationCoordinate2D userCoordinate = _coordinate;
+    NSMutableArray *pointsArray = [NSMutableArray new];
+    
+    CLLocationCoordinate2D newCoord = userCoordinate;
+    
+    //Calculating distance between points
+    double d = 1.2 * _requiredDistance / (_pointsCount - 1);
+    double angle = _currentAngle;
+    
+    for (int i = 0; i < _pointsCount; i++) {
+        newCoord = [self makeCoordFromCoord:newCoord distance:d angle:angle];
+        angle += M_PI * 2 / _pointsCount;
+        [pointsArray addObject:[[CLLocation alloc] initWithLatitude:newCoord.latitude longitude:newCoord.longitude]];
+    }
+    [self.routes removeAllObjects];
+    
+    CLLocation *startLocation = pointsArray[0];
+    __weak RouteFinder *wself = self;
+    _task = [GoogleDirectionProvider sendRequestDirectionsFromStart:startLocation waypoints:pointsArray completionHandler:^(Route *route, NSError *error) {
+        if (error) {
+            errorBlock(error);
+        }
+        else {
+            wself.currentRoute = route;
+            [wself.currentRoute saveUpdate];
+            NSLog(@"=== GOOOGLE MAPS FOUND DIRECTIONS ====");
+            NSLog(@"=== Distance: %f", route.distance);
+            
+            if (fabs(_requiredDistance - route.distance) < _requiredDistance/2) {
+                completeBlock([wself currentRoute]);
+            } else {
+                badCompleteBlock([wself currentRoute]);
+            }
+        }
+    }];
+}
+
+@end

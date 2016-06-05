@@ -1,0 +1,51 @@
+//
+//  GoogleBaseProvider.m
+//  Lasso
+//
+//
+
+#import "GoogleBaseProvider.h"
+
+@implementation GoogleBaseProvider
+
++ (NSString *) api {
+    return @"";
+}
+
++ (NSError *) validateStatus:(NSDictionary *) dictionary {
+    return nil;
+}
+
++ (NSURLRequest *) requestWithParametrs:(NSDictionary *) parameters {
+    NSMutableString *urlString = [NSMutableString stringWithFormat:@"https://maps.googleapis.com/maps/api/%@/json?", [self api]];
+    if (parameters.count) {
+        for (NSString *key in parameters.allKeys) {
+            [urlString appendFormat:@"&%@=%@", key, parameters[key]];
+        }
+    }
+    NSLog(@"URL: %@", urlString);
+    return [NSURLRequest requestWithURL:[NSURL URLWithString:[urlString stringByAddingPercentEscapesUsingEncoding: NSASCIIStringEncoding]]];
+}
+
++ (NSURLSessionTask *) sendRequestWithParameters:(NSDictionary *) parameters completionHandler:(void (^)(NSDictionary *response, NSError *error))completionHandler {
+    NSURLSessionTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:[self requestWithParametrs:parameters]
+                                                             completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+                                                                 NSError *requestError = error;
+                                                                 NSDictionary *json = nil;
+                                                                 if (!error) {
+                                                                     json = [NSJSONSerialization
+                                                                             JSONObjectWithData:data
+                                                                             options:NSJSONReadingAllowFragments
+                                                                             error:&requestError];
+                                                                     requestError = requestError ? requestError : [self validateStatus:json];
+                                                                 }
+                                                                 else {
+                                                                     NSLog(@"Error %@", error);
+                                                                 }
+                                                                 completionHandler(json, requestError);
+                                                             }];
+    [task resume];
+    return task;
+}
+
+@end
