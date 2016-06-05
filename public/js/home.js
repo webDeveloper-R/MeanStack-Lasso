@@ -35,7 +35,11 @@ angular.module('lassoo')
         routeColor[0]= "blue";
         routeColor[1]= "red";
         displayRoute(map, routeColor[0], {lat: 51.513878, lng: -0.111044}, {lat: 51.513878, lng: -0.111044}, waypoints[0]);
-        //displayRoute(map, routeColor[1], 'London SE1 0NQ, UK', 'London SE1 0NQ, UK', waypoints[1]);
+        displayRoute(map, routeColor[1], 'London SE1 0NQ, UK', 'London SE1 0NQ, UK', waypoints[1]);
+        var originMarker = new google.maps.Marker({
+            position: location,
+            map: map
+        });
     }
     function displayRoute(map, routeColor, origin, destination, waypoints) {
         var display = new google.maps.DirectionsRenderer({
